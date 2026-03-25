@@ -50,7 +50,7 @@ async function sendDiscordAlert(ad) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'User-Agent': 'DiscordBot (https://github.com/damdam/binance-bot, 1.0)'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             },
             body: JSON.stringify(message)
         });
@@ -125,6 +125,9 @@ async function checkBinanceP2P() {
                         // Clear the memory after a while (e.g., 30 minutes) to avoid infinite growing Set
                         // Or if the ad is reposted, alert again.
                         setTimeout(() => alertedAds.delete(advNo), 30 * 60 * 1000);
+
+                        // نكتفي بإرسال أفضل عرض فقط لتجنب الحظر من ديسكورد أو وتيليجرام بسبب كثرة الرسائل
+                        break;
                     }
                 } else {
                     // Since Binance returns them sorted by lowest price, if the first one is > target, all others are too.
