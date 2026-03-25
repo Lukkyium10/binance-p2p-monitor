@@ -13,22 +13,22 @@ const IGNORED_MERCHANTS = process.env.IGNORED_MERCHANTS ? process.env.IGNORED_ME
 let alertedAds = new Set(); // To remember ads we already alerted about
 
 const payload = {
-  "fiat": FIAT,
-  "page": 1,
-  "rows": 10,
-  "tradeType": "BUY",
-  "asset": "USDT",
-  "countries": [],
-  "proMerchantAds": false,
-  "shieldMerchantAds": false,
-  "publisherType": null,
-  "payTypes": ["AlgerieBaridimob", "AlgeriaPosteCCP"]
+    "fiat": FIAT,
+    "page": 1,
+    "rows": 10,
+    "tradeType": "BUY",
+    "asset": "USDT",
+    "countries": [],
+    "proMerchantAds": false,
+    "shieldMerchantAds": false,
+    "publisherType": null,
+    "payTypes": ["AlgerieBaridimob", "AlgeriaPosteCCP"]
 };
 
 // Function to send Discord webhook message
 async function sendDiscordAlert(ad) {
     if (!DISCORD_WEBHOOK_URL) return;
-    
+
     const message = {
         "content": `🚨 **تنبيه سعر USDT منخفض!** 🚨\n@everyone`,
         "embeds": [
@@ -46,12 +46,21 @@ async function sendDiscordAlert(ad) {
     };
 
     try {
-        await fetch(DISCORD_WEBHOOK_URL, {
+        const response = await fetch(DISCORD_WEBHOOK_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'DiscordBot (https://github.com/damdam/binance-bot, 1.0)'
+            },
             body: JSON.stringify(message)
         });
-        console.log(`[Discord] Alert sent for ad: ${ad.adv.advNo}`);
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`[Discord] Webhook Error ${response.status}: ${errText}`);
+        } else {
+            console.log(`[Discord] Alert sent for ad: ${ad.adv.advNo}`);
+        }
     } catch (error) {
         console.error("Discord Webhook Error:", error);
     }
@@ -60,14 +69,14 @@ async function sendDiscordAlert(ad) {
 // Function to make Telegram Voice Call via CallMeBot
 async function makeTelegramCall(ad) {
     if (!TELEGRAM_USERNAME || TELEGRAM_USERNAME === '@your_username') return;
-    
+
     const textToSpeak = encodeURIComponent(
         `Alert. Binance P 2 P USDT price is ${ad.adv.price} DZD. Please check your Discord.`
     );
-    
+
     // Using English voice to ensure maximum compatibility
     const url = `http://api.callmebot.com/start.php?user=${TELEGRAM_USERNAME}&text=${textToSpeak}&lang=en-GB-Standard-B&rpt=2`;
-    
+
     try {
         const response = await fetch(url);
         const text = await response.text();
@@ -88,34 +97,34 @@ async function checkBinanceP2P() {
             },
             body: JSON.stringify(payload)
         });
-        
+
         const json = await response.json();
-        
+
         if (json.data && json.data.length > 0) {
             // Find the lowest price ad containing our desired paytypes
             for (const ad of json.data) {
                 const price = parseFloat(ad.adv.price);
                 const advNo = ad.adv.advNo;
                 const nickName = ad.advertiser.nickName;
-                
+
                 // تخطي التجار الممنوعين (Restricted) الموجودين في ملف الإعدادات
                 if (IGNORED_MERCHANTS.includes(nickName)) {
                     continue;
                 }
-                
+
                 if (price <= TARGET_PRICE) {
                     if (!alertedAds.has(advNo)) {
                         console.log(`\n!!! MATCH FOUND !!! Price: ${price} DZD by ${ad.advertiser.nickName}`);
-                        
+
                         alertedAds.add(advNo);
-                        
+
                         // Send alerts
                         await sendDiscordAlert(ad);
                         await makeTelegramCall(ad);
 
                         // Clear the memory after a while (e.g., 30 minutes) to avoid infinite growing Set
                         // Or if the ad is reposted, alert again.
-                        setTimeout(() => alertedAds.delete(advNo), 30 * 60 * 1000); 
+                        setTimeout(() => alertedAds.delete(advNo), 30 * 60 * 1000);
                     }
                 } else {
                     // Since Binance returns them sorted by lowest price, if the first one is > target, all others are too.
